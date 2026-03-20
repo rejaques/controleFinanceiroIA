@@ -43,7 +43,6 @@ export async function GET() {
             };
         });
 
-        // 👇 ESTA ERA A LINHA QUE TINHA SUMIDO! 👇
         return NextResponse.json(dados);
 
     } catch (error) {

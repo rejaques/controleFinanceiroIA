@@ -27,10 +27,15 @@ export default function Dashboard() {
     const [busca, setBusca] = useState("");
 
     useEffect(() => {
-        // Busca os dados das DUAS APIs ao mesmo tempo
+        // Adicionamos parâmetros para destruir qualquer tentativa de cache do navegador
+        const fetchOptions = {
+            cache: "no-store" as RequestCache,
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        };
+
         Promise.all([
-            fetch("/api/gastos").then(res => res.json()),
-            fetch("/api/metas").then(res => res.json())
+            fetch("/api/gastos", fetchOptions).then(res => res.json()),
+            fetch("/api/metas", fetchOptions).then(res => res.json())
         ])
             .then(([dadosGastos, dadosMetas]) => {
                 setTransacoes(dadosGastos);
@@ -50,7 +55,12 @@ export default function Dashboard() {
     // --- MATEMÁTICA ---
     const totalGanhos = transacoes.filter((t) => t.tipo === "Ganho").reduce((acc, curr) => acc + curr.valor, 0);
     const totalGastos = transacoes.filter((t) => t.tipo === "Gasto").reduce((acc, curr) => acc + curr.valor, 0);
-    const saldoAtual = totalGanhos - totalGastos;
+
+    // 1. Calculamos também o total investido
+    const totalInvestido = transacoes.filter((t) => t.tipo === "Investimento").reduce((acc, curr) => acc + curr.valor, 0);
+
+    // 2. O Saldo Atual agora subtrai os gastos E os investimentos da sua conta
+    const saldoAtual = totalGanhos - totalGastos - totalInvestido;
 
     const gastosPorCategoria = transacoes
         .filter((t) => t.tipo === "Gasto")
@@ -268,9 +278,15 @@ export default function Dashboard() {
 
                         {metas.filter(m => m.nome).map((meta, idx) => {
 
-                            // 👇 MAGIA ACONTECENDO AQUI: SOMA OS INVESTIMENTOS DESTE OBJETIVO 👇
+                            // 👇 MAGIA BLINDADA CONTRA ERROS DE DIGITAÇÃO 👇
                             const arrecadado = transacoes
-                                .filter(t => t.objetivo === meta.nome || t.descricao === meta.nome)
+                                .filter(t => {
+                                    const objGasto = (t.objetivo || "").trim().toLowerCase();
+                                    const descGasto = (t.descricao || "").trim().toLowerCase();
+                                    const nomeMeta = (meta.nome || "").trim().toLowerCase();
+
+                                    return objGasto === nomeMeta || descGasto === nomeMeta;
+                                })
                                 .reduce((acc, curr) => acc + curr.valor, 0);
 
                             const porcentagem = Math.min(100, Math.max(0, (arrecadado / meta.total) * 100));
